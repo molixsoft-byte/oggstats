@@ -2,6 +2,8 @@
 
 This application monitors Classic Oracle GoldenGate statistics and provides a web interface to view the data.
 
+[oggstats_snapshot](!https://github.com/molixsoft-byte/oggstats/images/oggstats_snapshot.png)
+
 ## Features
 
 - **Stats Collection**: Automatically collects GoldenGate daily statistics from GGSCI
@@ -102,3 +104,4 @@ This will:
 - Delete all data from `ogg_table_stats_snap`
 
 The `ogg_tables` table (which contains the table configuration) is preserved.
+
