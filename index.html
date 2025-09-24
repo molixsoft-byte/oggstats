@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoldenGate Stats Dashboard - {{.extract_name}}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .stats-card { transition: transform 0.2s; }
+        .stats-card:hover { transform: translateY(-2px); }
+        .table-responsive { max-height: 400px; overflow-y: auto; }
+        .loading { text-align: center; padding: 20px; }
+        .date-picker { max-width: 200px; }
+        .sortable { cursor: pointer; }
+        .sort-arrow { margin-left: 4px; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
+            <span class="navbar-brand">GoldenGate Stats Dashboard</span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="text-white">Extract:</div>
+                <select id="extractSelect" class="form-select form-select-sm" style="width: 200px;"></select>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="d-flex align-items-center gap-2">
+                    <label for="datePicker" class="form-label mb-0">Select Date:</label>
+                    <input type="date" class="form-control date-picker" id="datePicker" style="max-width: 200px;">
+                </div>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-outline-primary" onclick="refreshAll()">Refresh</button>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Schema Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="schemaStatsLoading" class="loading">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="schemaStatsContent" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>PDB</th>
+                                            <th>Schema</th>
+                                            <th>Total Tables</th>
+                                            <th>Changed Tables</th>
+                                            <th>Inserts</th>
+                                            <th>Updates</th>
+                                            <th>Deletes</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="schemaStatsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                     <div class="card-header">
+                         <h5 class="card-title mb-0">Last 7 Days Statistics</h5>
+                     </div>
+                    <div class="card-body">
+                        <div id="dailyStatsLoading" class="loading">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="dailyStatsContent" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Inserts</th>
+                                            <th>Updates</th>
+                                            <th>Deletes</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dailyStatsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Hourly Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="hourlyStatsLoading" class="loading">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="hourlyStatsContent" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th>Hour</th>
+                                            <th>Inserts</th>
+                                            <th>Updates</th>
+                                            <th>Deletes</th>
+                                            <th>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="hourlyStatsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Table Statistics</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="tableStatsLoading" class="loading">
+                            <div class="spinner-border text-primary" role="status"></div>
+                        </div>
+                        <div id="tableStatsContent" style="display: none;">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th class="sortable" data-key="PDBName">PDB <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="SchemaName">Schema <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="TableName">Table <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="Inserts">Inserts <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="Updates">Updates <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="Deletes">Deletes <span class="sort-arrow"></span></th>
+                                            <th class="sortable" data-key="Sum">Total <span class="sort-arrow"></span></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="tableStatsTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('datePicker').value = new Date().toISOString().split('T')[0];
+
+        function formatNumber(num) {
+            if (num === null || num === undefined) {
+                return '0';
+            }
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+        }
+
+        function selectedExtract() {
+            const sel = document.getElementById('extractSelect');
+            return sel.value || '';
+        }
+
+        async function loadExtracts() {
+            try {
+                const res = await fetch('/api/extracts');
+                const list = await res.json();
+                const sel = document.getElementById('extractSelect');
+                sel.innerHTML = '';
+                // ALL option
+                const optAll = document.createElement('option');
+                optAll.value = '';
+                optAll.textContent = 'ALL';
+                sel.appendChild(optAll);
+                // each extract
+                list.forEach(ex => {
+                    const opt = document.createElement('option');
+                    opt.value = ex;
+                    opt.textContent = ex;
+                    sel.appendChild(opt);
+                });
+                sel.addEventListener('change', refreshAll);
+            } catch (e) {
+                console.error('Failed to load extracts', e);
+            }
+        }
+
+        async function loadSchemaStats() {
+            const date = document.getElementById('datePicker').value;
+            const ex = selectedExtract();
+            try {
+                const qs = new URLSearchParams({ date, extract: ex }).toString();
+                const response = await fetch(`/api/schema-stats?${qs}`);
+                const data = await response.json();
+                const tbody = document.getElementById('schemaStatsTable');
+                tbody.innerHTML = '';
+                let totalInserts = 0, totalUpdates = 0, totalDeletes = 0, totalSum = 0;
+                let totalTables = 0, totalChangedTables = 0;
+                data.forEach(item => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${item.PDBName || '-'}</td>
+                        <td>${item.SchemaName}</td>
+                        <td>${formatNumber(item.TotalTables)}</td>
+                        <td>${formatNumber(item.ChangedTables)}</td>
+                        <td>${formatNumber(item.TotalInserts)}</td>
+                        <td>${formatNumber(item.TotalUpdates)}</td>
+                        <td>${formatNumber(item.TotalDeletes)}</td>
+                        <td><strong>${formatNumber(item.TotalSum)}</strong></td>
+                    `;
+                    totalInserts += item.TotalInserts || 0;
+                    totalUpdates += item.TotalUpdates || 0;
+                    totalDeletes += item.TotalDeletes || 0;
+                    totalSum += item.TotalSum || 0;
+                    totalTables += item.TotalTables || 0;
+                    totalChangedTables += item.ChangedTables || 0;
+                });
+                if (data.length > 0) {
+                    const footerRow = tbody.insertRow();
+                    footerRow.className = 'table-dark';
+                    footerRow.innerHTML = `
+                        <td><strong>TOTAL</strong></td>
+                        <td><strong>-</strong></td>
+                        <td><strong>${formatNumber(totalTables)}</strong></td>
+                        <td><strong>${formatNumber(totalChangedTables)}</strong></td>
+                        <td><strong>${formatNumber(totalInserts)}</strong></td>
+                        <td><strong>${formatNumber(totalUpdates)}</strong></td>
+                        <td><strong>${formatNumber(totalDeletes)}</strong></td>
+                        <td><strong>${formatNumber(totalSum)}</strong></td>
+                    `;
+                }
+                document.getElementById('schemaStatsLoading').style.display = 'none';
+                document.getElementById('schemaStatsContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading schema stats:', error);
+            }
+        }
+
+        async function loadDailyStats() {
+            const date = document.getElementById('datePicker').value;
+            const ex = selectedExtract();
+            try {
+                const qs = new URLSearchParams({ date, extract: ex }).toString();
+                const response = await fetch(`/api/daily-stats?${qs}`);
+                const data = await response.json();
+                const tbody = document.getElementById('dailyStatsTable');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${item.Date}</td>
+                        <td>${formatNumber(item.Inserts)}</td>
+                        <td>${formatNumber(item.Updates)}</td>
+                        <td>${formatNumber(item.Deletes)}</td>
+                        <td><strong>${formatNumber(item.Sum)}</strong></td>
+                    `;
+                });
+                document.getElementById('dailyStatsLoading').style.display = 'none';
+                document.getElementById('dailyStatsContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading daily stats:', error);
+            }
+        }
+
+        async function loadHourlyStats() {
+            const date = document.getElementById('datePicker').value;
+            const ex = selectedExtract();
+            try {
+                const qs = new URLSearchParams({ date, extract: ex }).toString();
+                const response = await fetch(`/api/hourly-stats?${qs}`);
+                const data = await response.json();
+                const tbody = document.getElementById('hourlyStatsTable');
+                tbody.innerHTML = '';
+                data.forEach(item => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${item.Hour}</td>
+                        <td>${formatNumber(item.Inserts)}</td>
+                        <td>${formatNumber(item.Updates)}</td>
+                        <td>${formatNumber(item.Deletes)}</td>
+                        <td><strong>${formatNumber(item.Sum)}</strong></td>
+                    `;
+                });
+                document.getElementById('hourlyStatsLoading').style.display = 'none';
+                document.getElementById('hourlyStatsContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading hourly stats:', error);
+            }
+        }
+
+        async function loadTableStats() {
+            const date = document.getElementById('datePicker').value;
+            const ex = selectedExtract();
+            try {
+                const qs = new URLSearchParams({ date, extract: ex }).toString();
+                const response = await fetch(`/api/table-stats?${qs}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                let data = await response.json();
+                if (!Array.isArray(data)) data = [];
+
+                // sort state
+                const headerCells = document.querySelectorAll('#tableStatsContent thead th.sortable');
+                if (!window.tableSort) {
+                    window.tableSort = { key: 'Sum', dir: 'desc' };
+                }
+                // apply sort
+                const { key, dir } = window.tableSort;
+                data.sort((a, b) => {
+                    let av = a[key];
+                    let bv = b[key];
+                    // normalize undefined/null
+                    av = (av === undefined || av === null) ? '' : av;
+                    bv = (bv === undefined || bv === null) ? '' : bv;
+                    // numeric keys
+                    if (['Inserts','Updates','Deletes','Sum'].includes(key)) {
+                        av = Number(av);
+                        bv = Number(bv);
+                    } else {
+                        av = String(av);
+                        bv = String(bv);
+                    }
+                    if (av < bv) return dir === 'asc' ? -1 : 1;
+                    if (av > bv) return dir === 'asc' ? 1 : -1;
+                    return 0;
+                });
+
+                const tbody = document.getElementById('tableStatsTable');
+                tbody.innerHTML = '';
+                if (data.length === 0) {
+                    const row = tbody.insertRow();
+                    const cell = row.insertCell();
+                    cell.colSpan = 7;
+                    cell.className = 'text-center text-muted';
+                    cell.textContent = 'No data';
+                }
+                data.forEach(item => {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td>${item.PDBName || '-'}</td>
+                        <td>${item.SchemaName}</td>
+                        <td>${item.TableName}</td>
+                        <td>${formatNumber(item.Inserts)}</td>
+                        <td>${formatNumber(item.Updates)}</td>
+                        <td>${formatNumber(item.Deletes)}</td>
+                        <td><strong>${formatNumber(item.Sum)}</strong></td>
+                    `;
+                });
+
+                // update sort arrows
+                headerCells.forEach(th => {
+                    const arrow = th.querySelector('.sort-arrow');
+                    const k = th.getAttribute('data-key');
+                    if (k === key) {
+                        arrow.textContent = dir === 'asc' ? '▲' : '▼';
+                    } else {
+                        arrow.textContent = '';
+                    }
+                });
+                document.getElementById('tableStatsLoading').style.display = 'none';
+                document.getElementById('tableStatsContent').style.display = 'block';
+            } catch (error) {
+                console.error('Error loading table stats:', error);
+                // still reveal empty state instead of spinning forever
+                const tbody = document.getElementById('tableStatsTable');
+                tbody.innerHTML = '';
+                const row = tbody.insertRow();
+                const cell = row.insertCell();
+                cell.colSpan = 7;
+                cell.className = 'text-center text-muted';
+                cell.textContent = 'No data';
+                document.getElementById('tableStatsLoading').style.display = 'none';
+                document.getElementById('tableStatsContent').style.display = 'block';
+            }
+        }
+
+        // header click handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('#tableStatsContent thead th.sortable').forEach(th => {
+                th.addEventListener('click', () => {
+                    const key = th.getAttribute('data-key');
+                    if (!window.tableSort) window.tableSort = { key: 'Sum', dir: 'desc' };
+                    if (window.tableSort.key === key) {
+                        window.tableSort.dir = window.tableSort.dir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        window.tableSort.key = key;
+                        window.tableSort.dir = (['Inserts','Updates','Deletes','Sum'].includes(key)) ? 'desc' : 'asc';
+                    }
+                    // reload table only
+                    document.getElementById('tableStatsLoading').style.display = 'block';
+                    document.getElementById('tableStatsContent').style.display = 'none';
+                    loadTableStats();
+                });
+            });
+        });
+
+        async function init() {
+            await loadExtracts();
+            refreshAll();
+        }
+
+        function refreshAll() {
+            document.getElementById('schemaStatsLoading').style.display = 'block';
+            document.getElementById('schemaStatsContent').style.display = 'none';
+            document.getElementById('dailyStatsLoading').style.display = 'block';
+            document.getElementById('dailyStatsContent').style.display = 'none';
+            document.getElementById('hourlyStatsLoading').style.display = 'block';
+            document.getElementById('hourlyStatsContent').style.display = 'none';
+            document.getElementById('tableStatsLoading').style.display = 'block';
+            document.getElementById('tableStatsContent').style.display = 'none';
+
+            loadSchemaStats();
+            loadDailyStats();
+            loadHourlyStats();
+            loadTableStats();
+        }
+
+        document.getElementById('datePicker').addEventListener('change', refreshAll);
+        document.addEventListener('DOMContentLoaded', init);
+        setInterval(refreshAll, 120000);
+    </script>
+</body>
+</html>
