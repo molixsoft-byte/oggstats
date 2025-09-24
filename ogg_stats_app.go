@@ -41,7 +41,7 @@ var (
 )
 
 func main() {
-	fmt.Printf("GoldenGate Stats Utility v%s (%s) Copyright (c) 2025, CDL. All rights reserved.\n", version, buildDate)
+	fmt.Printf("GoldenGate Stats Utility v%s (%s).\n", version, buildDate)
 
 	// Flags
 	paramsFlag := flag.String("params", "", "Comma-separated GoldenGate parameter files (supports PDB format)")
